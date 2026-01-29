@@ -1,28 +1,34 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer
 import cv2
-import av
+import numpy as np
+from PIL import Image
 
-st.title("👁️ AI Vision Assistant")
+st.title("👁️ Smart Vision Assistant")
+st.write("Take a photo to check for people.")
 
-# AI Face Detection
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# This opens the camera correctly on any phone or laptop
+img_file = st.camera_input("Scan environment")
 
-def video_frame_callback(frame):
-    # Convert camera frame to a format Python can read
-    img = frame.to_ndarray(format="bgr24")
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+if img_file:
+    # 1. Process the image
+    img = Image.open(img_file)
+    frame = np.array(img)
+    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    
+    # 2. AI Detection
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     faces = face_cascade.detectMultiScale(gray, 1.1, 4)
 
-    for (x, y, w, h) in faces:
-        # Draw a green box around the face
-        cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
-    
-    return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-# This creates the START button on your website
-webrtc_streamer(
-    key="vision-assistant",
-    video_frame_callback=video_frame_callback,
-    media_stream_constraints={"video": True, "audio": False},
-)
+    # 3. Voice & Vibration Output
+    if len(faces) > 0:
+        msg = "Person detected"
+        st.success(msg)
+        st.components.v1.html(f"""
+            <script>
+            window.navigator.vibrate(500);
+            var msg = new SpeechSynthesisUtterance('{msg}');
+            window.speechSynthesis.speak(msg);
+            </script>
+        """, height=0)
+    else:
+        st.info("No one found.")
